@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Document Research Chatbot</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto p-4">
+        <h1 class="text-2xl font-bold mb-4">Document Research Chatbot</h1>
+        
+        <!-- Upload Section -->
+        <div class="mb-4">
+            <h2 class="text-xl font-semibold">Upload Document</h2>
+            <input type="file" id="fileInput" class="mt-2" accept=".pdf,.png,.jpg">
+            <button onclick="uploadDocument()" class="bg-blue-500 text-white px-4 py-2 mt-2 rounded">Upload</button>
+        </div>
+        
+        <!-- Document List -->
+        <div class="mb-4">
+            <h2 class="text-xl font-semibold">Documents</h2>
+            <ul id="docList" class="list-disc pl-5"></ul>
+        </div>
+        
+        <!-- Query Section -->
+        <div class="mb-4">
+            <h2 class="text-xl font-semibold">Query</h2>
+            <input type="text" id="queryInput" class="border p-2 w-full" placeholder="Enter your query">
+            <button onclick="submitQuery()" class="bg-green-500 text-white px-4 py-2 mt-2 rounded">Submit</button>
+        </div>
+        
+        <!-- Results -->
+        <div>
+            <h2 class="text-xl font-semibold">Results</h2>
+            <table id="resultsTable" class="w-full border-collapse border">
+                <thead>
+                    <tr class="bg-gray-200">
+                        <th class="border p-2">Document ID</th>
+                        <th class="border p-2">Answer</th>
+                        <th class="border p-2">Citation</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+            <h3 class="text-lg font-semibold mt-4">Themes</h3>
+            <ul id="themesList" class="list-disc pl-5"></ul>
+        </div>
+    </div>
+
+    <script>
+        async function uploadDocument() {
+            const fileInput = document.getElementById('fileInput');
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            
+            const response = await fetch('/upload', {
+                method: 'POST',
+                body: formData
+            });
+            const result = await response.json();
+            alert(`Uploaded: ${result.filename}`);
+            loadDocuments();
+        }
+
+        async function loadDocuments() {
+            const response = await fetch('/documents');
+            const documents = await response.json();
+            const docList = document.getElementById('docList');
+            docList.innerHTML = '';
+            documents.forEach(doc => {
+                const li = document.createElement('li');
+                li.innerHTML = `<input type="checkbox" value="${doc.doc_id}" class="doc-checkbox"> ${doc.filename}`;
+                docList.appendChild(li);
+            });
+        }
+
+        async function submitQuery() {
+            const query = document.getElementById('queryInput').value;
+            const selectedDocs = Array.from(document.querySelectorAll('.doc-checkbox:checked')).map(cb => cb.value);
+            
+            const response = await fetch('/query', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ query, selected_documents: selectedDocs })
+            });
+            const result = await response.json();
+            
+            // Update results table
+            const tbody = document.querySelector('#resultsTable tbody');
+            tbody.innerHTML = '';
+            result.responses.forEach(resp => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="border p-2">${resp.doc_id}</td>
+                    <td class="border p-2">${resp.answer}</td>
+                    <td class="border p-2">${resp.citation}</td>
+                `;
+                tbody.appendChild(row);
+            });
+            
+            // Update themes
+            const themesList = document.getElementById('themesList');
+            themesList.innerHTML = '';
+            result.themes.forEach(theme => {
+                const li = document.createElement('li');
+                li.textContent = `${theme.name}: ${theme.description} (Docs: ${theme.doc_ids.join(', ')})`;
+                themesList.appendChild(li);
+            });
+        }
+
+        window.onload = loadDocuments;
+    </script>
+</body>
+</html>
